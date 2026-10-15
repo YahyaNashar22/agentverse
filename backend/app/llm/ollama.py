@@ -1,8 +1,12 @@
 import httpx
 from pydantic import BaseModel, ValidationError
+from typing import Literal
+
+from app.llm.models import ChatMessage, ToolDefinition
 
 
 class OllamaMessage(BaseModel):
+    role: Literal["system", "user", "tool"]
     content: str
 
 
@@ -24,12 +28,28 @@ class OllamaProvider:
         self._model = model
 
     async def generate(self, prompt: str) -> str:
+        response = await self.complete(
+            messages=[ChatMessage(role="user", content=prompt)], tools=[]
+        )
+
+        if not response.content.strip():
+            raise LLMProviderError("Ollama returned no text.")
+
+        return response.content
+
+    async def complete(
+        self, messages: list[ChatMessage], tools: list[ToolDefinition]
+    ) -> ChatMessage:
         try:
             response = await self._client.post(
                 "/api/chat",
                 json={
                     "model": self._model,
-                    "messages": [{"role": "user", "content": prompt}],
+                    "messages": [
+                        message.model_dump(exclude_none=True, exclude_defaults=True)
+                        for message in messages
+                    ],
+                    "tools": [tool.model_dump() for tool in tools],
                     "stream": False,
                     "think": False,
                 },
@@ -38,10 +58,7 @@ class OllamaProvider:
             response.raise_for_status()
             result = OllamaChatResponse.model_validate(response.json())
 
-            if not result.message.content.strip():
-                raise LLMProviderError("Ollama returned an empty response")
-
-            return result.message.content
+            return ChatMessage(role=result.message.role, content=result.message.content)
 
         except httpx.HTTPError as exc:
             raise LLMProviderError("Unable to communicate with Ollama.") from exc

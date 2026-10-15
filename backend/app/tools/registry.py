@@ -44,3 +44,10 @@ class ToolRegistry:
         result = function(**arguments)
 
         return json.dumps(result)
+
+    def allowed_definitions(self, allowed_names: list[str]) -> list[ToolDefinition]:
+        return [
+            definition
+            for definition in self._definitions
+            if definition.function["name"] in allowed_names
+        ]

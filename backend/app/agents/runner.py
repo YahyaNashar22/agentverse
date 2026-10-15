@@ -9,66 +9,66 @@ class AgentRunner:
         self._provider = provider
         self._tools = tools
 
-        async def run(self, agent: AgentDefinition, task: str) -> AgentResult:
-            messages = [
-                ChatMessage(role="system", content=agent.instructions),
-                ChatMessage(role="user", content=task),
-            ]
+    async def run(self, agent: AgentDefinition, task: str) -> AgentResult:
+        messages = [
+            ChatMessage(role="system", content=agent.instructions),
+            ChatMessage(role="user", content=task),
+        ]
 
-            tool_definitions = self._tools.allowed_definitions(agent.allowed_tools)
+        tool_definitions = self._tools.allowed_definitions(agent.allowed_tools)
 
-            tools_used: list[str] = []
+        tools_used: list[str] = []
 
-            for step in range(1, agent.max_steps + 1):
-                response = await self._provider.complete(
-                    messages=messages, tools=tool_definitions
-                )
+        for step in range(1, agent.max_steps + 1):
+            response = await self._provider.complete(
+                messages=messages, tools=tool_definitions
+            )
 
-                messages.append(response)
+            messages.append(response)
 
-                # The model has finished without requesting tools.
-                if not response.tool_calls:
-                    if not response.content.strip():
-                        return AgentResult(
-                            agent_id=agent.id,
-                            response="The mode returned no answer.",
-                            steps=step,
-                            tools_used=tools_used,
-                            status="failed",
-                        )
-
+            # The model has finished without requesting tools.
+            if not response.tool_calls:
+                if not response.content.strip():
                     return AgentResult(
                         agent_id=agent.id,
-                        response=response.content,
+                        response="The mode returned no answer.",
                         steps=step,
                         tools_used=tools_used,
-                        status="completed",
+                        status="failed",
                     )
 
-                # Do not execute tools if we cannot make
-                # another model call to interpret their result.
-                if step == agent.max_steps:
-                    break
+                return AgentResult(
+                    agent_id=agent.id,
+                    response=response.content,
+                    steps=step,
+                    tools_used=tools_used,
+                    status="completed",
+                )
 
-                for tool_call in response.tool_calls:
-                    name = tool_call.function.name
-                    arguments = tool_call.function.arguments
+            # Do not execute tools if we cannot make
+            # another model call to interpret their result.
+            if step == agent.max_steps:
+                break
 
-                    # Enforce authorization in the backend.
-                    if name not in agent.allowed_tools:
-                        result = '{"error": "Tool not permitted."}'
-                    else:
-                        result = self._tools.execute(name=name, arguments=arguments)
-                        tools_used.append(name)
+            for tool_call in response.tool_calls:
+                name = tool_call.function.name
+                arguments = tool_call.function.arguments
 
-                    messages.append(
-                        ChatMessage(role="tool", tool_name=name, content=result)
-                    )
+                # Enforce authorization in the backend.
+                if name not in agent.allowed_tools:
+                    result = '{"error": "Tool not permitted."}'
+                else:
+                    result = self._tools.execute(name=name, arguments=arguments)
+                    tools_used.append(name)
 
-            return AgentResult(
-                agent_id=agent.id,
-                response="Execution stopped: step limit reached.",
-                steps=agent.max_steps,
-                tools_used=tools_used,
-                status="step_limit_reached",
-            )
+                messages.append(
+                    ChatMessage(role="tool", tool_name=name, content=result)
+                )
+
+        return AgentResult(
+            agent_id=agent.id,
+            response="Execution stopped: step limit reached.",
+            steps=agent.max_steps,
+            tools_used=tools_used,
+            status="step_limit_reached",
+        )

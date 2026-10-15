@@ -1,13 +1,14 @@
 import httpx
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, Field, ValidationError
 from typing import Literal
 
-from app.llm.models import ChatMessage, ToolDefinition
+from app.llm.models import ChatMessage, ToolCall, ToolDefinition
 
 
 class OllamaMessage(BaseModel):
-    role: Literal["system", "user", "tool"]
-    content: str
+    role: Literal["system", "user", "assistant", "tool"]
+    content: str = ""
+    tool_calls: list[ToolCall] = Field(default_factory=list)
 
 
 class OllamaChatResponse(BaseModel):
@@ -58,7 +59,11 @@ class OllamaProvider:
             response.raise_for_status()
             result = OllamaChatResponse.model_validate(response.json())
 
-            return ChatMessage(role=result.message.role, content=result.message.content)
+            return ChatMessage(
+                role=result.message.role,
+                content=result.message.content,
+                tool_calls=result.message.tool_calls,
+            )
 
         except httpx.HTTPError as exc:
             raise LLMProviderError("Unable to communicate with Ollama.") from exc

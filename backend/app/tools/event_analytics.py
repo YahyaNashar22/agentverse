@@ -16,7 +16,7 @@ EVENT_DATA = [
 def get_event_performance() -> list[dict]:
     results = []
     for event in EVENT_DATA:
-        conversion_rate = (event["registration"] / event["views"]) * 100
+        conversion_rate = (event["registrations"] / event["views"]) * 100
 
         results.append({**event, "conversion_rate": round(conversion_rate, 2)})
 

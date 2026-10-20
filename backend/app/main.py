@@ -42,7 +42,7 @@ app = FastAPI(title="AgentVerse API", version="0.2.0", lifespan=lifeSpan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://localhost:5173"],
+    allow_origins=["http://localhost:5173", "https://localhost:5173"],
     allow_credentials=False,
     allow_methods=["GET", "POST"],
     allow_headers=["Content-Type"],

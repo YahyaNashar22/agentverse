@@ -1,7 +1,7 @@
 from collections.abc import Callable
 from uuid import uuid4
 
-from agents.events import AgentEvent
+from app.agents.events import AgentEvent
 from app.agents.models import AgentDefinition, AgentResult
 from app.llm.models import ChatMessage
 from app.llm.provider import LLMProvider

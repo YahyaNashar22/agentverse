@@ -2,6 +2,8 @@ from contextlib import asynccontextmanager
 
 import httpx
 from fastapi import FastAPI, Depends, HTTPException, Request
+from fastapi.responses import StreamingResponse
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import Settings
 from app.llm.ollama import LLMProviderError, OllamaProvider
@@ -11,6 +13,7 @@ from app.services.chat import ChatService
 from app.agents.marketing import marketing_agent
 from app.agents.models import AgentResult
 from app.agents.runner import AgentRunner
+from app.agents.streaming import stream_agent_run
 from app.schemas import AgentRunRequest
 from app.tools.registry import ToolRegistry
 
@@ -36,6 +39,14 @@ async def lifeSpan(app: FastAPI):
 
 
 app = FastAPI(title="AgentVerse API", version="0.2.0", lifespan=lifeSpan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["https://localhost:5173"],
+    allow_credentials=False,
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type"],
+)
 
 
 def get_chat_service(request: Request) -> ChatService:
@@ -65,9 +76,22 @@ async def chat(body: ChatRequest, service: ChatService = Depends(get_chat_servic
 
 
 @app.post("/api/agents/marketing/run", response_model=AgentResult)
-async def run_marketing_agent(body: AgentRunRequest, runner: AgentRunner = Depends(get_agent_runner)):
+async def run_marketing_agent(
+    body: AgentRunRequest, runner: AgentRunner = Depends(get_agent_runner)
+):
     try:
         return await runner.run(agent=marketing_agent, task=body.task)
 
     except LLMProviderError as exc:
         raise HTTPException(status_code=502, detail="The LLM provider failed.") from exc
+
+
+@app.post("/api/agents/marketing/stream")
+async def stream_marketing_agent(
+    body: AgentRunRequest, runner: AgentRunner = Depends(get_agent_runner)
+):
+    return StreamingResponse(
+        stream_agent_run(runner=runner, agent=marketing_agent, task=body.task),
+        media_type="application/x-ndjson",
+        headers={"Cache-Control": "no-cache"},
+    )

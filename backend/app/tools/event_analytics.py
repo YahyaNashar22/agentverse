@@ -1,23 +1,19 @@
-EVENT_DATA = [
-    {"category": "Concerts", "views": 12000, "registrations": 1800},
-    {
-        "category": "Corporate",
-        "views": 6000,
-        "registrations": 1200,
-    },
-    {
-        "category": "Sports",
-        "views": 9000,
-        "registrations": 900,
-    },
-]
+from datetime import date
+
+from app.analytics.service import AnalyticsService
 
 
-def get_event_performance() -> list[dict]:
-    results = []
-    for event in EVENT_DATA:
-        conversion_rate = (event["registrations"] / event["views"]) * 100
+def get_event_performance(
+    analytics: AnalyticsService,
+    start_date: str | None = None,
+    end_date: str | None = None,
+) -> dict:
+    start = date.fromisoformat(start_date) if start_date is not None else None
+    end = date.fromisoformat(end_date) if end_date is not None else None
 
-        results.append({**event, "conversion_rate": round(conversion_rate, 2)})
+    if start and end and start > end:
+        raise ValueError("start_date cannot be after end_date.")
 
-    return results
+    report = analytics.get_performance(start=start, end=end)
+
+    return report.model_dump(mode="json")

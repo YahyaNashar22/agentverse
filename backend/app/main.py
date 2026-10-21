@@ -1,5 +1,7 @@
 from contextlib import asynccontextmanager
 
+from pathlib import Path
+
 import httpx
 from fastapi import FastAPI, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
@@ -16,6 +18,8 @@ from app.agents.runner import AgentRunner
 from app.agents.streaming import stream_agent_run
 from app.schemas import AgentRunRequest
 from app.tools.registry import ToolRegistry
+from app.analytics.repository import CSVPerformanceRepository
+from app.analytics.service import AnalyticsService
 
 
 @asynccontextmanager
@@ -29,7 +33,13 @@ async def lifeSpan(app: FastAPI):
             client=client, model=settings.ollama_model
         )
 
-        app.state.tool_registry = ToolRegistry()
+        data_path = (Path(__file__).resolve().parents[1] / "data" / "event_performance.csv")
+
+        analytics = AnalyticsService(repository=CSVPerformanceRepository(data_path))
+
+        app.state.analytics_service = analytics
+
+        app.state.tool_registry = ToolRegistry(analytics=analytics)
 
         app.state.agent_runner = AgentRunner(
             provider=app.state.llm_provider, tools=app.state.tool_registry

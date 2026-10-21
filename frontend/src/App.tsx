@@ -1,4 +1,3 @@
-
 import { useMemo, useState } from "react";
 import {
   ReactFlow,
@@ -18,6 +17,7 @@ import AgentDetails from "./features/headquarters/components/AgentDetails";
 import { agents } from "./features/headquarters/data/organization";
 import { useAgentRun } from "./features/headquarters/hooks/useAgentRun";
 import type { Agent, AgentStatus } from "./features/headquarters/types";
+import AnalyticsPanel from "./features/analytics/AnalyticsPanel";
 
 const nodeTypes = {
   agent: AgentNode,
@@ -60,7 +60,7 @@ export default function App() {
           },
         };
       }),
-    [status]
+    [status],
   );
 
   const edges = useMemo<Edge[]>(
@@ -74,10 +74,7 @@ export default function App() {
           target === "marketing-001" &&
           (status === "thinking" || status === "working"),
         style: {
-          stroke:
-            target === "marketing-001" && running
-              ? "#27d3b3"
-              : "#344660",
+          stroke: target === "marketing-001" && running ? "#27d3b3" : "#344660",
           strokeWidth: 2,
         },
         markerEnd: {
@@ -85,7 +82,7 @@ export default function App() {
           color: "#526d91",
         },
       })),
-    [status, running]
+    [status, running],
   );
 
   const selectedAgent: Agent =
@@ -115,13 +112,11 @@ export default function App() {
       <div className="workspace">
         <section className="graph-section">
           <div className="graph-heading">
-            <span className="panel-eyebrow">
-              ORGANIZATION NETWORK
-            </span>
+            <span className="panel-eyebrow">ORGANIZATION NETWORK</span>
             <h1>Company Headquarters</h1>
             <p>
-              Select an employee to inspect its capabilities
-              and launch missions.
+              Select an employee to inspect its capabilities and launch
+              missions.
             </p>
           </div>
 
@@ -149,6 +144,8 @@ export default function App() {
               <Controls showInteractive={false} />
             </ReactFlow>
           </div>
+
+          <AnalyticsPanel />
         </section>
 
         <AgentDetails

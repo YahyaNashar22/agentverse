@@ -12,8 +12,8 @@ from app.tools.event_analytics import get_event_performance
 class PerformanceArgs(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    start_date = date | None = None
-    end_date = date | None = None
+    start_date:date | None = None
+    end_date: date | None = None
 
 class ToolRegistry:
     def __init__(self, analytics: AnalyticsService) -> None:

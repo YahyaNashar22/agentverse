@@ -1,9 +1,10 @@
 from contextlib import asynccontextmanager
 
+from datetime import date
 from pathlib import Path
 
 import httpx
-from fastapi import FastAPI, Depends, HTTPException, Request
+from fastapi import FastAPI, Depends, HTTPException, Request, Response, Query
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -20,6 +21,8 @@ from app.schemas import AgentRunRequest
 from app.tools.registry import ToolRegistry
 from app.analytics.repository import CSVPerformanceRepository
 from app.analytics.service import AnalyticsService
+from app.analytics.models import PerformanceReport
+from app.analytics.charts import create_conversion_chart
 
 
 @asynccontextmanager
@@ -33,7 +36,9 @@ async def lifeSpan(app: FastAPI):
             client=client, model=settings.ollama_model
         )
 
-        data_path = (Path(__file__).resolve().parents[1] / "data" / "event_performance.csv")
+        data_path = (
+            Path(__file__).resolve().parents[1] / "data" / "event_performance.csv"
+        )
 
         analytics = AnalyticsService(repository=CSVPerformanceRepository(data_path))
 
@@ -66,6 +71,10 @@ def get_chat_service(request: Request) -> ChatService:
 
 def get_agent_runner(request: Request) -> AgentRunner:
     return request.app.state.agent_runner
+
+
+def get_analytics_service(request: Request) -> AnalyticsService:
+    return request.app.state.analytics_service
 
 
 @app.get("/health")
@@ -105,3 +114,29 @@ async def stream_marketing_agent(
         media_type="application/x-ndjson",
         headers={"Cache-Control": "no-cache"},
     )
+
+
+@app.get("/api/analytics/performance", response_model=PerformanceReport)
+def get_performance(
+    start: date | None = Query(default=None),
+    end: date | None = Query(default=None),
+    service: AnalyticsService = Depends(get_analytics_service),
+):
+    if start and end and start > end:
+        raise HTTPException(
+            status_code=422, detail="Start date must not exceed end date."
+        )
+
+    try:
+        return service.get_performance(start=start, end=end)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.get("/api/analytics/conversion-chart")
+def get_conversion_chart(service: AnalyticsService = Depends(get_analytics_service)):
+    report = service.get_performance()
+
+    png = create_conversion_chart(report)
+
+    return Response(content=png, media_type="image/png")
